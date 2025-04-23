@@ -16,9 +16,9 @@ int main(int argc, char** argv) {
   Body ibody[N/size], jbody[N/size];
   srand48(rank);
   for(int i=0; i<N/size; i++) {
-    ibody[i].x = jbody[i].x = drand48();
-    ibody[i].y = jbody[i].y = drand48();
-    ibody[i].m = jbody[i].m = drand48();
+    ibody[i].x = jbody[i].x = 100*i+1000.0;
+    ibody[i].y = jbody[i].y = i*i*10.0;
+    ibody[i].m = jbody[i].m = 1000*i+100.0;
     ibody[i].fx = jbody[i].fx = ibody[i].fy = jbody[i].fy = 0;
   }
   int recv_from = (rank + 1) % size;
@@ -30,9 +30,6 @@ int main(int argc, char** argv) {
     //Change from MPI_Send and MPI_Recv to MPI_Win
     //MPI_Send(jbody, N/size, MPI_BODY, send_to, 0, MPI_COMM_WORLD);
     //MPI_Recv(jbody, N/size, MPI_BODY, recv_from, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    //
-    //*** memo: The result will be different from the Send/Recv version becasue of the change of random initial value of body(?)***
-    // When fixing the initial values of the variables, the result of win version will be same to that of the Send/Recv version!
     MPI_Win win;
     MPI_Win_create(jbody, N/size*sizeof(MPI_BODY), sizeof(MPI_BODY), MPI_INFO_NULL, MPI_COMM_WORLD, &win);
     MPI_Win_fence(0,win);
