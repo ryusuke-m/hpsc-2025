@@ -51,16 +51,14 @@ __global__ void apply_pressure_bc_kernel(float* p, int nx, int ny) {
     int i = blockDim.x * blockIdx.x + threadIdx.x;
     int j = blockDim.y * blockIdx.y + threadIdx.y;
 
-    // 左右の境界
     if (i == 0 && j > 0 && j < ny - 1) p[idx(0, j, nx)] = p[idx(1, j, nx)];
     if (i == nx - 1 && j > 0 && j < ny-1) p[idx(nx - 1, j, nx)] = p[idx(nx - 2, j, nx)];
 
-    // 上下の境界
     if (j == 0 && i > 0 && i < nx - 1) p[idx(i, 0, nx)] = p[idx(i, 1, nx)];
     if (j == ny - 1 && i > 0 && i < nx-1) p[idx(i, ny - 1, nx)] = 0.0f;
 }
 
-// 速度場を更新するカーネル
+
 __global__ void update_velocity_kernel(float* u, float* v, const float* un, const float* vn, const float* p, int nx, int ny, float dt, float dx, float dy, float rho, float nu) {
     int i = blockDim.x * blockIdx.x + threadIdx.x;
     int j = blockDim.y * blockIdx.y + threadIdx.y;
@@ -100,18 +98,7 @@ __global__ void apply_velocity_bc_kernel(float* u, float* v, int nx, int ny) {
     }
 }
 
-// void write_to_file(const std::string& filename, const float* h_data, int nx, int ny) {
-//     static std::map<std::string, std::ofstream> files;
-//     if (files.find(filename) == files.end()) {
-//         files[filename].open(filename);
-//     }
-//     for (int j = 0; j < ny; j++) {
-//         for (int i = 0; i < nx; i++) {
-//             files[filename] << h_data[idx(i, j, nx)] << " ";
-//         }
-//     }
-//     files[filename] << "\n";
-// }
+
 
 int main() {
   int nx = 41;
@@ -151,11 +138,10 @@ int main() {
   ofstream vfile("v.dat");
   ofstream pfile("p.dat");
   for (int n = 0; n < nt; n++) {
-      // 1. bの計算
+
       compute_b_kernel<<<numBlocks, threadsPerBlock>>>(d_b, d_u, d_v, nx, ny, dt, dx, dy, rho);
       cudaGetLastError();
 
-      // 2. 圧力の反復計算
       for (int it = 0; it < nit; it++) {
           cudaMemcpy(d_pn, d_p, size, cudaMemcpyDeviceToDevice);
           pressure_poisson_kernel<<<numBlocks, threadsPerBlock>>>(d_p, d_pn, d_b, nx, ny, dx, dy);
@@ -164,15 +150,13 @@ int main() {
           cudaGetLastError();
       }
 
-      // 3. 速度のコピー
+
       cudaMemcpy(d_un, d_u, size, cudaMemcpyDeviceToDevice);
       cudaMemcpy(d_vn, d_v, size, cudaMemcpyDeviceToDevice);
 
-      // 4. 速度の更新
       update_velocity_kernel<<<numBlocks, threadsPerBlock>>>(d_u, d_v, d_un, d_vn, d_p, nx, ny, dt, dx, dy, rho, nu);
       cudaGetLastError();
       
-      // 5. 速度の境界条件適用
       apply_velocity_bc_kernel<<<numBlocks, threadsPerBlock>>>(d_u, d_v, nx, ny);
       cudaGetLastError();
 
@@ -196,7 +180,6 @@ int main() {
         }
   }
 
-  // メモリの解放
   free(h_u);
   free(h_v);
   free(h_p);
