@@ -3,10 +3,11 @@
 #include <fstream>
 #include <vector>
 
+
 using namespace std;
 typedef vector<vector<float>> matrix;
 //2D->1D
-__device__ int idx(int i, int j, int nx) {
+__device__  int idx(int i, int j, int nx) {
     return i + j * nx;
 }
 
@@ -99,6 +100,19 @@ __global__ void apply_velocity_bc_kernel(float* u, float* v, int nx, int ny) {
     }
 }
 
+// void write_to_file(const std::string& filename, const float* h_data, int nx, int ny) {
+//     static std::map<std::string, std::ofstream> files;
+//     if (files.find(filename) == files.end()) {
+//         files[filename].open(filename);
+//     }
+//     for (int j = 0; j < ny; j++) {
+//         for (int i = 0; i < nx; i++) {
+//             files[filename] << h_data[idx(i, j, nx)] << " ";
+//         }
+//     }
+//     files[filename] << "\n";
+// }
+
 int main() {
   int nx = 41;
   int ny = 41;
@@ -133,7 +147,9 @@ int main() {
   dim3 numBlocks((nx + threadsPerBlock.x - 1) / threadsPerBlock.x, 
                   (ny + threadsPerBlock.y - 1) / threadsPerBlock.y);
 
-
+  ofstream ufile("u.dat");
+  ofstream vfile("v.dat");
+  ofstream pfile("p.dat");
   for (int n = 0; n < nt; n++) {
       // 1. bの計算
       compute_b_kernel<<<numBlocks, threadsPerBlock>>>(d_b, d_u, d_v, nx, ny, dt, dx, dy, rho);
@@ -160,16 +176,24 @@ int main() {
       apply_velocity_bc_kernel<<<numBlocks, threadsPerBlock>>>(d_u, d_v, nx, ny);
       cudaGetLastError();
 
-      // 6. 結果の出力
+
       if (n % 10 == 0) {
-          std::cout << "Step: " << n << std::endl;
-          cudaMemcpy(h_u, d_u, size, cudaMemcpyDeviceToHost);
-          cudaMemcpy(h_v, d_v, size, cudaMemcpyDeviceToHost);
-          cudaMemcpy(h_p, d_p, size, cudaMemcpyDeviceToHost);
-          write_to_file("u.dat", h_u, nx, ny);
-          write_to_file("v.dat", h_v, nx, ny);
-          write_to_file("p.dat", h_p, nx, ny);
-      }
+        cudaMemcpy(h_u, d_u, size, cudaMemcpyDeviceToHost);
+        cudaMemcpy(h_v, d_v, size, cudaMemcpyDeviceToHost);
+        cudaMemcpy(h_p, d_p, size, cudaMemcpyDeviceToHost);
+        for (int j=0; j<ny; j++)
+            for (int i=0; i<nx; i++)
+            ufile << h_u[i + j * nx] << " ";
+        ufile << "\n";
+        for (int j=0; j<ny; j++)
+            for (int i=0; i<nx; i++)
+            vfile << h_v[i + j * nx] << " ";
+        vfile << "\n";
+        for (int j=0; j<ny; j++)
+            for (int i=0; i<nx; i++)
+            pfile << h_p[i + j * nx] << " ";
+        pfile << "\n";
+        }
   }
 
   // メモリの解放
@@ -185,69 +209,5 @@ int main() {
   cudaFree(d_pn);
 
   return 0;
-}
 
-
-
-
-  ofstream ufile("u.dat");
-  ofstream vfile("v.dat");
-  ofstream pfile("p.dat");
-  for (int n=0; n<nt; n++) {
-    for (int j=1; j<ny-1; j++) {
-      for (int i=1; i<nx-1; i++) {
-        // Compute b[j][i]
-      }
-    }
-    for (int it=0; it<nit; it++) {
-      for (int j=0; j<ny; j++)
-        for (int i=0; i<nx; i++)
-	  pn[j][i] = p[j][i];
-      for (int j=1; j<ny-1; j++) {
-        for (int i=1; i<nx-1; i++) {
-	  // Compute p[j][i]
-	}
-      }
-      for (int j=0; j<ny; j++) {
-        // Compute p[j][0] and p[j][nx-1]
-      }
-      for (int i=0; i<nx; i++) {
-	// Compute p[0][i] and p[ny-1][i]
-      }
-    }
-    for (int j=0; j<ny; j++) {
-      for (int i=0; i<nx; i++) {
-        un[j][i] = u[j][i];
-	vn[j][i] = v[j][i];
-      }
-    }
-    for (int j=1; j<ny-1; j++) {
-      for (int i=1; i<nx-1; i++) {
-	// Compute u[j][i] and v[j][i]
-      }
-    }
-    for (int j=0; j<ny; j++) {
-      // Compute u[j][0], u[j][nx-1], v[j][0], v[j][nx-1]
-    }
-    for (int i=0; i<nx; i++) {
-      // Compute u[0][i], u[ny-1][i], v[0][i], v[ny-1][i]
-    }
-    if (n % 10 == 0) {
-      for (int j=0; j<ny; j++)
-        for (int i=0; i<nx; i++)
-          ufile << u[j][i] << " ";
-      ufile << "\n";
-      for (int j=0; j<ny; j++)
-        for (int i=0; i<nx; i++)
-          vfile << v[j][i] << " ";
-      vfile << "\n";
-      for (int j=0; j<ny; j++)
-        for (int i=0; i<nx; i++)
-          pfile << p[j][i] << " ";
-      pfile << "\n";
-    }
-  }
-  ufile.close();
-  vfile.close();
-  pfile.close();
 }
